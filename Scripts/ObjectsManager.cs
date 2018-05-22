@@ -7,9 +7,24 @@ using UnityEngine.Networking;
 
 namespace SB.Objects
 {
+    [System.Serializable]
+    public class Data
+    {
+        public int id;
+        public string key;
+        public string bundlepath;
+    }
+
+    [System.Serializable]
+    public class ServerAssetBundle
+    {
+        public Data data;
+    }
+
 
     public class ObjectsBundle
     {
+        public Object Asset;
         public Object[] AllObjects;
         public AssetBundle Bundle;
         public string Name;
@@ -18,13 +33,66 @@ namespace SB.Objects
     public class ObjectsManager : MonoBehaviour
     {
 
+        [SerializeField]
+        const string AWS_ADDRESS = @"https://s3.amazonaws.com/";
+
+        [SerializeField]
+        string _dbAddress = @"http://10.0.1.32:2222/";
+
         public string ProjectPath
         {
-            get { return Path.Combine(_serverURL, _projectName); }
+            get { return Path.Combine(AWS_ADDRESS, _bucket); }
         }
 
-        [SerializeField] string _serverURL;
-        [SerializeField] string _projectName;
+
+        [SerializeField] string _bucket;
+        //[SerializeField] string _projectName;
+
+        public ServerAssetBundle _latestBundle;
+        public int latestId = 0;
+
+        public ObjectsBundle LatestBundle = null;
+
+        private void Start()
+        {
+            StartCoroutine(PollLatestAssets());
+        }
+
+        IEnumerator PollLatestAssets()
+        {
+            while (true)
+            {
+                UnityWebRequest req = UnityWebRequest.Get(_dbAddress + @"api/assets/latest");
+                Debug.Log(req.uri);
+
+                yield return req.SendWebRequest();
+                if (req.isNetworkError || req.isHttpError)
+                    Debug.LogError(req.error);
+                else
+                {
+                    var resp = req.downloadHandler.text;
+
+                    Debug.Log(resp);
+
+                    _latestBundle = JsonUtility.FromJson<ServerAssetBundle>(resp);
+                    //var bundle = _bundles.Where(t=>t.bundlepath!=null).FirstOrDefault();
+
+                    if (_latestBundle.data.bundlepath != null)
+                    {
+                        Debug.Log(_latestBundle.data.id);
+                        if (_latestBundle.data.id > latestId)
+                        {
+                            latestId = _latestBundle.data.id;
+                             GetObjectsBundle(_latestBundle.data.bundlepath);
+                        }
+                    }
+
+                }
+
+                yield return new WaitForSeconds(10);
+            }
+
+        }
 
 
         private Dictionary<string, ObjectsBundle> _bundleDictionary = new Dictionary<string, ObjectsBundle>();
@@ -66,7 +134,6 @@ namespace SB.Objects
             return null;
         }
 
-
         IEnumerator GetAssetBundleAsync(string name)
         {
             _currentRequests.Add(name);
@@ -97,12 +164,18 @@ namespace SB.Objects
                 {
                     Name = name,
                     Bundle = bundle,
-                    AllObjects = objects.allAssets
+                    AllObjects = objects.allAssets,
+                    Asset = objects.asset
                 };
+
+                LatestBundle = b;
 
                 Debug.Log("Loaded AllAssets");
 
-                _bundleDictionary.Add(name, b);
+                if (_bundleDictionary.ContainsKey(name))
+                    _bundleDictionary[name] = b;
+                else
+                    _bundleDictionary.Add(name, b);
 
                 _currentRequests.Remove(name);
 
