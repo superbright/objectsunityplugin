@@ -4,24 +4,13 @@ using System.IO;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
+using SB.Objects.Model;
+
+
 
 namespace SB.Objects
 {
     [System.Serializable]
-    public class Data
-    {
-        public int id;
-        public string key;
-        public string bundlepath;
-    }
-
-    [System.Serializable]
-    public class ServerAssetBundle
-    {
-        public Data data;
-    }
-
-
     public class ObjectsBundle
     {
         public Object Asset;
@@ -37,53 +26,96 @@ namespace SB.Objects
         const string AWS_ADDRESS = @"https://s3.amazonaws.com/";
 
         [SerializeField]
-        string _dbAddress = @"http://10.0.1.32:2222/";
+        string _dbAddress = @"http://167.99.82.243/";
+
+        [SerializeField]
+        int _port = 2222;
+
+        [SerializeField]
+        string _s3Bucket = "s3deploy.test";
 
         public string ProjectPath
         {
-            get { return Path.Combine(AWS_ADDRESS, _bucket); }
+            get { return Path.Combine(AWS_ADDRESS, _s3Bucket); }
         }
 
+        public string APIRoot
+        {
+            get { return @"http://" + _dbAddress + ":" + _port + @"/api/"; }
+        }
 
-        [SerializeField] string _bucket;
-        //[SerializeField] string _projectName;
+        public string LatestAssetEndpoint
+        {
+            get { return APIRoot + @"assets/latest"; }
+        }
 
-        public ServerAssetBundle _latestBundle;
+        public bool PollForAssetChanges
+        {
+            get { return _pollForAssetChanges; }
+            set
+            {
+                if (value != _pollForAssetChanges)
+                {
+                    _pollForAssetChanges = value;
+
+                    if (_pollForAssetChanges)
+                    {
+                        StartCoroutine(PollLatestAssets());
+                    }
+                }
+            }
+        }
+
+        [SerializeField] bool _pollForAssetChanges = true;
+        public int PollDelay = 10;
+
+        AssetBundleModel _latestBundle;
+
         public int latestId = 0;
 
-        public ObjectsBundle LatestBundle = null;
+        [SerializeField]
+        List<ObjectsBundle> _bundles = new List<ObjectsBundle>();
+
+        public ObjectsBundle LatestBundle
+        {
+            get { return _bundles.Last(); }
+        }
+
+        public System.Action AssetBundleUpdated;
 
         private void Start()
         {
-            StartCoroutine(PollLatestAssets());
+            if (PollForAssetChanges)
+                StartCoroutine(PollLatestAssets());
         }
 
         IEnumerator PollLatestAssets()
         {
-            while (true)
+            Debug.Log("Start Polling for asset changes");
+
+            while (_pollForAssetChanges)
             {
-                UnityWebRequest req = UnityWebRequest.Get(_dbAddress + @"api/assets/latest");
-                Debug.Log(req.uri);
+                UnityWebRequest req = UnityWebRequest.Get(LatestAssetEndpoint);
 
                 yield return req.SendWebRequest();
                 if (req.isNetworkError || req.isHttpError)
-                    Debug.LogError(req.error);
+                    Debug.LogError("Err: " + req.error);
                 else
                 {
                     var resp = req.downloadHandler.text;
 
-                    Debug.Log(resp);
+                    Debug.Log("Resp: " + resp);
 
-                    _latestBundle = JsonUtility.FromJson<ServerAssetBundle>(resp);
-                    //var bundle = _bundles.Where(t=>t.bundlepath!=null).FirstOrDefault();
+                    _latestBundle = resp.ToAssetBundleModel();
 
                     if (_latestBundle.data.bundlepath != null)
                     {
                         Debug.Log(_latestBundle.data.id);
+
                         if (_latestBundle.data.id > latestId)
                         {
                             latestId = _latestBundle.data.id;
-                             GetObjectsBundle(_latestBundle.data.bundlepath);
+                            GetObjectsBundle(_latestBundle.data.bundlepath);
                         }
                     }
 
@@ -92,46 +124,15 @@ namespace SB.Objects
                 yield return new WaitForSeconds(10);
             }
 
+            Debug.Log("No longer polling for asset changes");
         }
 
-
-        private Dictionary<string, ObjectsBundle> _bundleDictionary = new Dictionary<string, ObjectsBundle>();
-        private Dictionary<string, System.Action> _loadCompleteCallbacks = new Dictionary<string, System.Action>();
-        private Dictionary<string, System.Action> _bundleUpdatedCallbacks = new Dictionary<string, System.Action>();
-
-
-        public void RegisterOnUpdatedCallback(string name, System.Action callback)
-        {
-            if (!_bundleUpdatedCallbacks.ContainsKey(name))
-                _bundleUpdatedCallbacks.Add(name, callback);
-            else
-                _bundleUpdatedCallbacks[name] += callback;
-        }
-
-        public void RegisterCompleteCallback(string name, System.Action callback)
-        {
-            if (!_loadCompleteCallbacks.ContainsKey(name))
-                _loadCompleteCallbacks.Add(name, callback);
-            else
-                _loadCompleteCallbacks[name] += callback;
-        }
 
         private List<string> _currentRequests = new List<string>();
 
-
-        public ObjectsBundle GetObjectsBundle(string name)
+        public void GetObjectsBundle(string name)
         {
-            if (_bundleDictionary.ContainsKey(name))
-            {
-                Debug.Log("ObjectsManager already loaded Bundle: " + name);
-                return _bundleDictionary[name];
-            }
-            else if (_currentRequests.Contains(name))
-                return null;
-            else
-                StartCoroutine(GetAssetBundleAsync(name));
-
-            return null;
+            StartCoroutine(GetAssetBundleAsync(name));
         }
 
         IEnumerator GetAssetBundleAsync(string name)
@@ -168,25 +169,15 @@ namespace SB.Objects
                     Asset = objects.asset
                 };
 
-                LatestBundle = b;
+                _bundles.Add(b);
 
                 Debug.Log("Loaded AllAssets");
 
-                if (_bundleDictionary.ContainsKey(name))
-                    _bundleDictionary[name] = b;
-                else
-                    _bundleDictionary.Add(name, b);
-
                 _currentRequests.Remove(name);
 
-                OnLoadComplete(name);
+                if (AssetBundleUpdated != null)
+                    AssetBundleUpdated();
             }
-        }
-
-        private void OnLoadComplete(string name)
-        {
-            if (_loadCompleteCallbacks.ContainsKey(name))
-                _loadCompleteCallbacks[name]();
         }
     }
 }
