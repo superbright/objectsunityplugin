@@ -51,6 +51,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 92540534a1f8a9744afbf828cf53f4a8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _manager: {fileID: 0}
   _key: 
   _instantiateOnStart: 1
-  latestId: -1
+  _bundle:
+    Asset: {fileID: 0}
+    AllObjects: []
+    Bundle: {fileID: 0}
+    Name: 
