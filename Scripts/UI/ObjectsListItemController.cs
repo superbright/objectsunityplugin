@@ -86,10 +86,11 @@ public class ObjectsListItemController : MonoBehaviour
 
     public Action<ObjectsListItemController> OnSelected;
 
-    public void OnEnable()
+    public void Update()
     {
         if (_needsDownloadThumbnail && !_isDownloadingThumbnail)
         {
+            _isDownloadingThumbnail = true;
             StartCoroutine(DownloadThumbnail());
         }
     }
@@ -103,12 +104,6 @@ public class ObjectsListItemController : MonoBehaviour
     void Start()
     {
         BtnBg = GetComponent<Image>();
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-
     }
 
     public void HandleButtonPress()

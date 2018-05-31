@@ -24,8 +24,6 @@ namespace SB.Objects.UI
         public GameObject ListRoot;
         public GameObject _listItemPrefab;
 
-        public GameObject Snackbar;
-
         [SerializeField]
         public List<ObjectsListItemController> _children;
 
@@ -127,7 +125,6 @@ namespace SB.Objects.UI
             _toggleButton.GetComponent<Image>().sprite = _isListShowing ? _toggleButtonActive : _toggleButtonInactive;
 
             SetChildrenActive(_isListShowing);
-            Snackbar.SetActive(!_isListShowing);
         }
 
         // Update is called once per frame
