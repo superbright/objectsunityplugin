@@ -47,8 +47,6 @@ namespace SB.Objects
     public class ObjectsManager : MonoBehaviour
     {
 
-
-
         [SerializeField]
         string _dbAddress = @"http://167.99.82.243/";
 
@@ -140,7 +138,7 @@ namespace SB.Objects
                     var resp = req.downloadHandler.text;
 
                     //Debug.Log("Resp: " + resp);
-                    var bundleModels = resp.ToAssetBundleModel().data.Where(itm=>itm.bundlepath.Length > 0).ToList();
+                    var bundleModels = resp.ToAssetBundleModel().data.Where(itm => itm.bundlepath.Length > 0).ToList();
 
                     var newValidBundles = bundleModels.Where(itm => itm.bundlepath.Length > 0).Count();
 
@@ -181,7 +179,20 @@ namespace SB.Objects
         {
             _currentRequests.Add(name);
 
-            var path = Path.Combine(AWS.ProjectPath, data.bundlepath);
+            //Path.Split is to negate breaking change to bundlepath for multiple platforms
+            var path = Path.Combine(AWS.ProjectPath, data.bundlepath.Split('.')[0]);
+            switch (Application.platform)
+            {
+                case RuntimePlatform.Android:
+                    path += ".android";
+                    break;
+                case RuntimePlatform.IPhonePlayer:
+                    path += ".ios";
+                    break;
+                default:
+                    path += ".android";
+                    break;
+            }
 
             Debug.Log("Attempting to get AssetBundle from: " + path);
 
