@@ -24,6 +24,9 @@ namespace SB.Objects
 
         GameObject _child;
 
+        public bool _autoRescaleObject = false;
+        public float _targetScale = 1;
+
         public void Instantiate(Transform t = null)
         {
             StartCoroutine(
@@ -38,8 +41,8 @@ namespace SB.Objects
                 {
                     if (_child != null)
                         GameObject.Destroy(_child);
-                    _child = null;
 
+                    _child = null;
 
                     var obj = _bundle.Asset;
 
@@ -49,6 +52,14 @@ namespace SB.Objects
                         _child = Instantiate(obj, t) as GameObject;
 
                     _child.GetComponentsInChildren<Camera>().ToList().ForEach(c => c.enabled = false);
+
+                    if (_autoRescaleObject)
+                    {
+                        var resize = _child.AddComponent<AutoResizeObject>();
+
+                        resize.TargetSize = _targetScale;
+                    }
+
                 }
             }));
 

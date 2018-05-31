@@ -24,10 +24,15 @@ namespace SB.Objects.UI
         public GameObject ListRoot;
         public GameObject _listItemPrefab;
 
+        public GameObject Snackbar;
+
         [SerializeField]
         public List<ObjectsListItemController> _children;
 
+        
+
         public Action<int> ListItemSelected;
+        public Action ClearSceneButtonPressed;
 
         private bool _firstRun = true;
 
@@ -42,6 +47,7 @@ namespace SB.Objects.UI
                 enabled = false;
                 return;
             }
+
             _manager.BundleModelsUpdated += () =>
                 {
                     BuildListview();
@@ -51,6 +57,12 @@ namespace SB.Objects.UI
 
             SetChildrenActive(_isListShowing);
 
+        }
+
+        public void HandleClearSceneButton()
+        {
+            if (ClearSceneButtonPressed != null)
+                ClearSceneButtonPressed();
         }
 
         private void ClearListView()
@@ -115,6 +127,7 @@ namespace SB.Objects.UI
             _toggleButton.GetComponent<Image>().sprite = _isListShowing ? _toggleButtonActive : _toggleButtonInactive;
 
             SetChildrenActive(_isListShowing);
+            Snackbar.SetActive(!_isListShowing);
         }
 
         // Update is called once per frame
